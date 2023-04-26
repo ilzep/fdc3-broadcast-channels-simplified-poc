@@ -1,21 +1,8 @@
 function interopOverride(InteropBroker, provider, options, ...args) {
-    
+
 	// OPENFIN docs: https://developer.openfin.co/docs/javascript/stable/InteropBroker.html
-    class InteropOverride extends InteropBroker {
-        externalBroker;
+	class InteropOverride extends InteropBroker {
 		allowedURLs = ['http://localhost:4000/sender/sender.html'];
-        
-        async initializeBrokers(uuid, endpointId) {
-			const platform = fin.Platform.wrapSync({ uuid });
-
-			if (await platform.Application.isRunning()) {
-				await this.setupContextGroups(uuid, endpointId);
-			}
-
-			await platform.on("platform-api-ready", async () => {
-				await this.setupContextGroups(uuid, endpointId);
-			});
-		}
 
 		/**
 		 * Called before every action to check if this entity should be allowed to take the action. 
@@ -40,7 +27,7 @@ function interopOverride(InteropBroker, provider, options, ...args) {
 		 * @returns 
 		 */
 		async isConnectionAuthorized(id, payload) {
-			
+
 			/** example:
 			{"batch":false,"entityType":"window","name":"platform_sender_window_1",
 			"parentFrame":"platform_sender_window_1","uuid":"platform_sender_uuid",
@@ -56,21 +43,22 @@ function interopOverride(InteropBroker, provider, options, ...args) {
 			console.log(`[isConnectionAuthorized] payload: ${JSON.stringify(payload)}`);
 
 			// own app always allowed
-			if(id.uuid === fin.me.uuid) {
+			if (id.uuid === fin.me.uuid) {
 				return true;
 			}
 
 			// only green listed URLS allowed to connect
-			if(this.allowedURLs.indexOf(id.connectionUrl) == -1) {
-				return false;
+			if (this.allowedURLs.indexOf(id.connectionUrl) >= 0) {
+				// subscribe to context messages for this particular uuid
+				this.setupContextHandler(id.uuid);
+				return true;
 			}
-			// subscribe to context messages for this particular uuid
-			this.initializeBrokers(id.uuid, id.endpointId);
 			
-			// if we got here, we are allowing connection
-			return true;
+			// default to false
+			return false;
 		}
 
+		// called when client has disconnected 
 		async clientDisconnected(clientIdentity) {
 			/**
 			 * {"topic":"channel","type":"client-disconnected","uuid":"platform_sender_uuid",
@@ -82,28 +70,29 @@ function interopOverride(InteropBroker, provider, options, ...args) {
 			console.log(`[clientDIsconnected] clientIdentity: ${JSON.stringify(clientIdentity)}`);
 		}
 
-        async setupContextGroups(uuid, endpointId) { 
+		async setupContextHandler(uuid) {
 			const selectedChannnel = 'green';
+			// connect to sender and join the green context group
 			const colorClient = fin.Interop.connectSync(uuid, {});
 			await colorClient.joinContextGroup(selectedChannnel);
 
 			const contextHandler = async context => {
-				const identity = {uuid: fin.me.uuid, name: 'platform_receiver_window_1'};
-				const intent = {name:'ViewChart', context};
+				// new message received from sender, to handle we raise an intent internally
+				// this is a bit of a hack, we can choose later how to pass messages from interop broker to consumer windows
+				const identity = { uuid: fin.me.uuid, name: 'platform_receiver_window_1' };
+				const intent = { name: 'ViewChart', context };
 				await super.setIntentTarget(intent, identity);
 			};
 			await colorClient.addContextHandler(contextHandler);
+		}
 
-        }
+		constructor() {
+			super();
+		}
 
-        constructor() {
-            super();
-            this.externalBroker = 'platform_sender_uuid';
-        }
+	}
 
-    }
-
-    return new InteropOverride(provider, options, ...args);
+	return new InteropOverride(provider, options, ...args);
 }
 
 fin.Platform.init({ interopOverride });

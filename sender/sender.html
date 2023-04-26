@@ -1,41 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sender</title>
-  </head>
-  <body  style="background: #00800059;">
-    <h1>Sender</h1>
-    <br />
-    </div>
-    <button onclick="setupConnection()">Connect to Receiver</button>
-    <button onclick="broadcastContext()">Broadcast</button>
 
-    <script>
-      var selectedContextGroup;
-      async function main() {
-        var contexts = ['green'];
-        setCurrentContextGroup(contexts[0]);
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sender</title>
+</head>
 
-      function setupConnection() {
+<body style="background: #00800059;">
+  <h1>Sender</h1>
+  <br />
+  </div>
+  <button onclick="broadcastContext()">Broadcast</button>
+
+  <script>
+    var selectedContextGroup;
+    var receiverplatformInteropClient;
+
+    function broadcastContext() {
+      if (receiverplatformInteropClient === undefined) {
         // Create a connection with the receiver application
         // Sender is not using this connection, but will allow receiver to validate the senders URL
-        var receiverplatformInteropClient = fin.Interop.connectSync('platform_receiver', {token: 'connection_token'});
+        receiverplatformInteropClient = fin.Interop.connectSync('platform_receiver', { token: 'connection_token' });
       }
+      const context = { type: 'fdc3.instrument', id: { BBG: 'EURUSD Curncy' }, time: Date.now() };
+      fdc3.broadcast(context);
+    }
 
-      function setCurrentContextGroup(newContext) {
-        fdc3.joinChannel(newContext);
-      }
-      
-      function broadcastContext() {
-        const context = { type: 'fdc3.instrument', id: {BBG : 'EURUSD Curncy'}, time: Date.now()};
-        fdc3.broadcast(context);
-      }
+    async function main() {
+      fdc3.joinChannel('green');
+    }
 
-      main();
-    </script>
-  </body>
+    main();
+  </script>
+</body>
+
 </html>
